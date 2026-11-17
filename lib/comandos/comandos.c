@@ -35,6 +35,10 @@ static uint8_t leer_f(char **p, float *v)
 
 static void ejecutar(char *l)
 {
+    while (*l == ' ' || *l == '\t')
+        l++;
+    if (!*l)
+        return;
     char c = l[0];
     if (c >= 'A' && c <= 'Z')
         c += 32;
@@ -112,20 +116,26 @@ void comandos_tarea(void)
 {
     static char linea[LINEA_MAX];
     static uint8_t n = 0;
+    static uint8_t desborde = 0;
     int16_t c;
 
     while ((c = uart_getc()) >= 0)
     {
         if (c == '\r' || c == '\n')
         {
-            if (n)
+            if (desborde)
+                err(); // línea demasiado larga: se descarta entera
+            else if (n)
             {
                 linea[n] = 0;
                 ejecutar(linea);
-                n = 0;
             }
+            n = 0;
+            desborde = 0;
         }
         else if (n < LINEA_MAX - 1)
             linea[n++] = (c == ',') ? '.' : (char)c; // acepta coma decimal
+        else
+            desborde = 1;
     }
 }

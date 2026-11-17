@@ -14,7 +14,7 @@
 //   1) t <u0> <u1>  -> ensayo al escalón: K, tau, theta + ZN y CHR  (a z | a c)
 //   2) o ZN lazo cerrado: i 0, d 0, subir p hasta oscilar -> z <Ku> <Tu> (a k)
 //   3) ajuste fino manual con p / i / d mientras se mira el log (t_ms,sp,rpm,u_pct)
-// Requiere timer.c / timer.h (los tuyos, sin cambios).
+// Requiere timer.c / timer.h (los tuyos; "tiempo" pasó a ser volatile).
 int main()
 {
     config_IO();

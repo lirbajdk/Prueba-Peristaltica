@@ -10,7 +10,7 @@ static uint8_t estado = 0;
 uint8_t as5600_init(void)
 {
     i2c_init();
-    uint8_t e = i2c_leer_reg(AS5600_DIR, AS5600_REG_STATUS, &estado, 1);
+    uint8_t e = as5600_leer_estado();
     if (e)
         return e;
     if (!(estado & AS5600_MD))
@@ -41,6 +41,11 @@ uint8_t as5600_actualizar(void)
     pos += (uint32_t)(int32_t)(d * SENTIDO_SENSOR);
     ang_ant = ang;
     return 0;
+}
+
+uint8_t as5600_leer_estado(void)
+{
+    return i2c_leer_reg(AS5600_DIR, AS5600_REG_STATUS, &estado, 1);
 }
 
 uint32_t as5600_posicion(void) { return pos; }

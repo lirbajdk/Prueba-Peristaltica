@@ -11,6 +11,8 @@
 #define ENS_VENTANA_TICKS (500 / TS_PID_MS)  // cada 0,5 s revisa si se estabilizó
 #define ENS_VENTANAS_MAX 20                  // espera máxima 10 s
 
+#define MAX_SIN_IMAN 3 // lecturas de STATUS seguidas sin imán -> falla
+
 typedef enum
 {
     ENS_ESPERA,
@@ -34,6 +36,8 @@ static uint8_t sug_ok = 0; // bit0 = z, bit1 = c, bit2 = k
 static float sp = 0.0f, pv = 0.0f, u_actual = 0.0f, u_manual = 0.0f;
 static uint8_t log_on = 1;
 static uint8_t errores_sensor = 0;
+static uint8_t sin_iman = 0;
+static const char *falla_pend = 0; // mensaje (en flash) pendiente de imprimir
 static uint32_t pos_ant, t_ant, t_inicio_log;
 static uint32_t t_pid_prox, t_sensor_prox;
 
@@ -76,6 +80,9 @@ static void entrar_modo(ctrl_modo_t m)
         UART_PRINT("t_ms,sp,rpm,u_pct\r\n");
 }
 
+// Apaga el motor en el acto. El mensaje se imprime después, desde control_tarea():
+// esta función puede ejecutarse dentro de uart_putc (lectura del sensor mientras
+// espera lugar en el buffer) y ahí no se debe imprimir.
 static void declarar_falla(const char *msg_P)
 {
     if (modo == CTRL_FALLA)
@@ -83,8 +90,17 @@ static void declarar_falla(const char *msg_P)
     modo = CTRL_FALLA;
     pwm_set(0);
     u_actual = 0.0f;
+    falla_pend = msg_P;
+}
+
+static void reportar_falla(void)
+{
+    if (!falla_pend)
+        return;
+    const char *m = falla_pend;
+    falla_pend = 0;
     UART_PRINT("# FALLA: ");
-    uart_puts_P(msg_P);
+    uart_puts_P(m);
     UART_PRINT(" (x para rearmar)\r\n");
 }
 
@@ -98,6 +114,31 @@ static uint8_t leer_sensor(void)
     if (++errores_sensor >= MAX_ERRORES_SENSOR)
         declarar_falla(PSTR("sensor AS5600"));
     return 0;
+}
+
+// Lectura periódica del sensor (cada TS_SENSOR_MS). Se llama desde el while(1) y
+// también desde uart_putc cuando el buffer TX está lleno, así una impresión larga
+// no deja al AS5600 sin leer (más de media vuelta entre lecturas = error de cuenta).
+static void tarea_sensor(void)
+{
+    static uint8_t ocupado = 0;
+    if (ocupado)
+        return;
+    ocupado = 1;
+    if (vencio(&t_sensor_prox, TS_SENSOR_MS))
+        leer_sensor();
+    ocupado = 0;
+}
+
+// Verifica que el imán siga presente (bit MD del registro STATUS)
+static void chequear_iman(void)
+{
+    if (as5600_leer_estado() != 0)
+        return; // los errores de I2C ya los cuenta leer_sensor()
+    if (as5600_estado() & AS5600_MD)
+        sin_iman = 0;
+    else if (++sin_iman >= MAX_SIN_IMAN)
+        declarar_falla(PSTR("se perdio el iman del AS5600"));
 }
 
 static void log_linea(uint32_t ahora)
@@ -174,8 +215,10 @@ static float ensayo_tick(void)
     ens.y[ens.n++] = (int16_t)(pv < 0.0f ? 0.0f : pv);
     if (ens.n >= ENSAYO_N)
     {
-        ensayo_reportar();
+        // primero se cambia de modo: si aparece una falla mientras se imprime
+        // el reporte, no tiene que quedar pisada por CTRL_PARADO
         entrar_modo(CTRL_PARADO);
+        ensayo_reportar();
         return 0.0f;
     }
     return ens.u1;
@@ -200,6 +243,7 @@ static void tick_pid(void)
 
     if (fabsf(pv) > RPM_MAX_SEGURIDAD)
         declarar_falla(PSTR("sobrevelocidad"));
+    chequear_iman();
 
     float u = 0.0f;
     switch (modo)
@@ -217,6 +261,8 @@ static void tick_pid(void)
         u = 0.0f;
         break;
     }
+    if (modo == CTRL_FALLA) // por si la falla apareció durante este mismo tick
+        u = 0.0f;
     u_actual = u;
     pwm_set_porcentaje(u);
 
@@ -228,8 +274,8 @@ void control_tarea(void)
 {
     if (vencio(&t_pid_prox, TS_PID_MS))
         tick_pid();
-    if (vencio(&t_sensor_prox, TS_SENSOR_MS))
-        leer_sensor();
+    tarea_sensor();
+    reportar_falla();
 }
 
 //--------------API--------------//
@@ -260,12 +306,16 @@ void control_init(void)
     t_ant = tiempo_ms();
     t_pid_prox = t_ant + TS_PID_MS;
     t_sensor_prox = t_ant + TS_SENSOR_MS;
+    uart_set_espera(tarea_sensor);
+    reportar_falla();
     UART_PRINT("# ? = ayuda\r\n");
 }
 
 void control_parar(void)
 {
     errores_sensor = 0;
+    sin_iman = 0;
+    falla_pend = 0;
     u_manual = 0.0f;
     u_actual = 0.0f;
     pwm_set(0);
@@ -276,7 +326,7 @@ uint8_t control_iniciar_pid(void)
 {
     if (modo == CTRL_FALLA)
         return 0;
-    pid_reset(&pid, pv, u_actual); // arranca sin salto
+    pid_reset(&pid, sp, pv, u_actual); // arranca sin salto
     entrar_modo(CTRL_PID);
     return 1;
 }

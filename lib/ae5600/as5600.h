@@ -20,7 +20,8 @@ extern "C" {
 uint8_t as5600_init(void);       // 0 = OK
 uint8_t as5600_actualizar(void); // lee el ángulo y acumula la posición (0 = OK)
 uint32_t as5600_posicion(void);  // cuentas acumuladas (usar la resta con signo)
-uint8_t as5600_estado(void);     // último registro STATUS
+uint8_t as5600_leer_estado(void); // lee STATUS (0 = OK)
+uint8_t as5600_estado(void);     // último registro STATUS leído
 
 #ifdef __cplusplus
 }
