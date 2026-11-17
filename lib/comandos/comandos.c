@@ -3,10 +3,11 @@
 #include "uart.h"
 #include "config.h"
 #include "encoder.h"
-#include <math.h>
 #include <stdlib.h>
 
 #define LINEA_MAX 32
+
+static uint16_t sp_encoder = 0; // último setpoint tomado del encoder [rpm]
 
 static void ok(void) { UART_PRINT("# OK\r\n"); }
 static void err(void) { UART_PRINT("# ERROR\r\n"); }
@@ -76,7 +77,15 @@ static void ejecutar(char *l)
         control_estado();
         break;
     case 's':
-        (leer_f(&arg, &a) && control_set_sp(a)) ? ok() : err();
+        if (leer_f(&arg, &a) && control_set_sp(a))
+        {
+            // el encoder sigue desde el valor escrito por la terminal
+            sp_encoder = (uint16_t)(a + 0.5f);
+            enco_set_sp(sp_encoder);
+            ok();
+        }
+        else
+            err();
         break;
     case 'g':
         control_iniciar_pid() ? ok() : err();
@@ -116,35 +125,29 @@ static void ejecutar(char *l)
     }
 }
 
-// Setpoint con el encoder: cada paso suma/resta ENC_PASO_RPM, o ENC_PASO_RAPIDO_RPM
-// si se gira rápido. El valor se ajusta a la grilla del paso y se limita a
-// [0, RPM_SP_MAX]. El setpoint es el mismo que el del comando 's'.
+// Setpoint con el encoder (encoder.c): cada clic suma/resta ENC_PASO_RPM, o
+// ENC_PASO_RAPIDO_RPM si se gira rápido, entre 0 y RPM_SP_MAX.
+// Es el mismo setpoint que el del comando 's'.
 static void encoder_tarea(void)
 {
-    static uint32_t t_ult_paso = 0, t_ult_aviso = 0;
+    static uint32_t t_ult_aviso = 0;
     static uint8_t aviso_pend = 0;
-    uint32_t ahora = tiempo_ms();
-    int8_t n = encoder_leer_pasos();
 
-    if (n)
+    uint16_t v = enco_get_sp();
+    if (v != sp_encoder)
     {
-        float paso = ((uint32_t)(ahora - t_ult_paso) < ENC_T_RAPIDO_MS) ? ENC_PASO_RAPIDO_RPM : ENC_PASO_RPM;
-        t_ult_paso = ahora;
-        float nuevo = (floorf(control_get_sp() / paso + 0.5f) + (float)n) * paso;
-        if (nuevo < 0.0f)
-            nuevo = 0.0f;
-        if (nuevo > RPM_SP_MAX)
-            nuevo = RPM_SP_MAX;
-        control_set_sp(nuevo);
+        sp_encoder = v;
+        control_set_sp((float)v);
         aviso_pend = 1;
     }
     // se informa el setpoint, sin inundar la terminal mientras se gira
+    uint32_t ahora = tiempo_ms();
     if (aviso_pend && (uint32_t)(ahora - t_ult_aviso) >= ENC_T_AVISO_MS)
     {
         aviso_pend = 0;
         t_ult_aviso = ahora;
         UART_PRINT("# sp=");
-        uart_put_f(control_get_sp(), 0);
+        uart_put_i(sp_encoder);
         UART_PRINT(" rpm\r\n");
     }
 }

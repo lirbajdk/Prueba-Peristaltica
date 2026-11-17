@@ -17,7 +17,7 @@ extern "C" {
 //-----------PINES-----------//
 #define MOSFET_PIN PB1 // D9 = OC1A (Timer1 PWM)
 // SDA = A4 (PC4), SCL = A5 (PC5) -> TWI por hardware
-// Encoder: A (CLK) = D2 (PD2, INT0), B (DT) = D3 (PD3, INT1)
+// Encoder: A (CLK) = D4 (PD4, PCINT20), B (DT) = D5 (PD5, PCINT21) -> ver encoder.h
 
 //--------TEMPORIZACIÓN-------//
 #define TS_PID_MS 20 // período del lazo PID [ms]
@@ -36,8 +36,8 @@ extern "C" {
 //----------ENCODER----------//
 #define ENC_SENTIDO 1                // poner -1 si el setpoint baja al girar en horario
 #define ENC_TRANSICIONES_POR_PASO 4  // KY-040: 4 (1 ciclo por detent). Algunos EC11: 2
-#define ENC_PASO_RPM 10.0f           // cambio de setpoint por paso girando despacio
-#define ENC_PASO_RAPIDO_RPM 100.0f   // cambio por paso girando rápido
+#define ENC_PASO_RPM 10              // cambio de setpoint por paso girando despacio [rpm]
+#define ENC_PASO_RAPIDO_RPM 100      // cambio por paso girando rápido [rpm]
 #define ENC_T_RAPIDO_MS 40           // pasos más seguidos que esto = giro rápido
 #define ENC_T_AVISO_MS 250           // como mucho un "# sp=..." cada este tiempo
 
