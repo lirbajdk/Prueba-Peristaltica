@@ -12,7 +12,7 @@ void pid_init(pid_ctrl_t *p, float kp, float ki, float kd, float ts, float out_m
     p->out_min = out_min;
     p->out_max = out_max;
     pid_set_ganancias(p, kp, ki, kd);
-    pid_reset(p, 0.0f, 0.0f);
+    pid_reset(p, 0.0f, 0.0f, 0.0f);
 }
 
 void pid_set_ganancias(pid_ctrl_t *p, float kp, float ki, float kd)
@@ -28,12 +28,16 @@ void pid_set_filtro_d(pid_ctrl_t *p, float tf)
     p->tf = tf;
 }
 
-void pid_reset(pid_ctrl_t *p, float pv, float out_actual)
+// Transferencia sin salto: la integral arranca en (salida actual - término P),
+// así la primera salida del PID coincide con la que tenía el motor.
+// (D arranca en 0 porque pv_ant = pv.)
+void pid_reset(pid_ctrl_t *p, float sp, float pv, float out_actual)
 {
-    p->i_term = limitar(out_actual, p->out_min, p->out_max);
+    out_actual = limitar(out_actual, p->out_min, p->out_max);
+    p->p_term = p->kp * (sp - pv);
+    p->i_term = limitar(out_actual - p->p_term, p->out_min, p->out_max);
     p->pv_ant = pv;
     p->d_filt = 0.0f;
-    p->p_term = 0.0f;
     p->d_term = 0.0f;
     p->out = out_actual;
 }
