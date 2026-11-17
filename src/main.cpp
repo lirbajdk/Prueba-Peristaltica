@@ -4,10 +4,12 @@
 #include "pwm.h"
 #include "control.h"
 #include "comandos.h"
+#include "encoder.h"
 
 //---------- Control PID de velocidad de un motor ----------//
 // Actuador : MOSFET en D9 (Timer1, PWM 15,6 kHz)
 // Sensor   : AS5600 por I2C (SDA = A4, SCL = A5) -> velocidad en rpm
+// Encoder  : A = D4, B = D5 -> setpoint (también con 's <rpm>' por la terminal)
 // Terminal : 115200 baud. Con '?' se ve la ayuda.
 //
 // Sintonía (punto 3 de la consigna):
@@ -21,6 +23,8 @@ int main()
     config_timer0(); // base de tiempo de 1 ms -> get_time()
     uart_init();
     pwm_init();
+    encoder_init(); // pines del encoder con pull-up
+    pcint_init();   // interrupción por cambio en PD4 / PD5
     sei();
     control_init(); // I2C + AS5600 + PID
 

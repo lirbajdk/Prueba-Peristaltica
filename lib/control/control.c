@@ -339,6 +339,11 @@ uint8_t control_set_sp(float rpm)
     return 1;
 }
 
+float control_get_sp(void)
+{
+    return sp;
+}
+
 uint8_t control_manual(float pct)
 {
     if (modo == CTRL_FALLA || pct < U_MIN || pct > U_MAX)
