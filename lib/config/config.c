@@ -13,6 +13,8 @@ void config_IO(void)
 {
     set_bit(DDRB, MOSFET_PIN);   // D9 salida
     clear_bit(PORTB, MOSFET_PIN); // motor apagado
+    set_bit(DDRB, LED_PIN);       // LED de estado
+    clear_bit(PORTB, LED_PIN);
 }
 
 // get_time() es de 32 bits y el micro de 8: hay que leerlo sin que la ISR lo cambie

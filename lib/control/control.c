@@ -270,12 +270,28 @@ static void tick_pid(void)
         log_linea(ahora);
 }
 
+// LED de la placa: apagado = parado, fijo = motor habilitado, parpadeo = falla
+static void led_estado(void)
+{
+    static uint32_t t_led = 0;
+    if (modo == CTRL_FALLA)
+    {
+        if (vencio(&t_led, 250))
+            PINB = (1 << LED_PIN); // escribir 1 en PINx invierte el pin
+    }
+    else if (modo == CTRL_PARADO)
+        clear_bit(PORTB, LED_PIN);
+    else
+        set_bit(PORTB, LED_PIN);
+}
+
 void control_tarea(void)
 {
     if (vencio(&t_pid_prox, TS_PID_MS))
         tick_pid();
     tarea_sensor();
     reportar_falla();
+    led_estado();
 }
 
 //--------------API--------------//
@@ -309,6 +325,10 @@ void control_init(void)
     uart_set_espera(tarea_sensor);
     reportar_falla();
     UART_PRINT("# ? = ayuda\r\n");
+#if ARRANQUE_EN_PID
+    if (control_iniciar_pid()) // con sp = 0 la salida es 0 hasta girar el encoder
+        UART_PRINT("# PID ON: girar el encoder para subir el setpoint\r\n");
+#endif
 }
 
 void control_parar(void)
