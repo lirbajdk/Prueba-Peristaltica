@@ -23,6 +23,7 @@ void control_tarea(void); // llamar en el while(1)
 void control_parar(void); // también borra una falla
 uint8_t control_iniciar_pid(void);
 uint8_t control_set_sp(float rpm);
+float control_get_sp(void);
 uint8_t control_manual(float pct);
 uint8_t control_ensayo(float u0, float u1);
 void control_set_ganancias(const ganancias_t *g);

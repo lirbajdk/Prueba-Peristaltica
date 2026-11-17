@@ -1,6 +1,9 @@
 #include "comandos.h"
 #include "control.h"
 #include "uart.h"
+#include "config.h"
+#include "encoder.h"
+#include <math.h>
 #include <stdlib.h>
 
 #define LINEA_MAX 32
@@ -19,6 +22,7 @@ static void ayuda(void)
     UART_PRINT("# z <Ku> <Tu>  Ziegler-Nichols lazo cerrado\r\n");
     UART_PRINT("# a <z|c|k>    aplicar ganancias sugeridas\r\n");
     UART_PRINT("# l            log ON/OFF\r\n");
+    UART_PRINT("# encoder      girar = setpoint (rapido = pasos grandes)\r\n");
 }
 
 // lee un float del texto; avanza el puntero
@@ -112,8 +116,43 @@ static void ejecutar(char *l)
     }
 }
 
+// Setpoint con el encoder: cada paso suma/resta ENC_PASO_RPM, o ENC_PASO_RAPIDO_RPM
+// si se gira rápido. El valor se ajusta a la grilla del paso y se limita a
+// [0, RPM_SP_MAX]. El setpoint es el mismo que el del comando 's'.
+static void encoder_tarea(void)
+{
+    static uint32_t t_ult_paso = 0, t_ult_aviso = 0;
+    static uint8_t aviso_pend = 0;
+    uint32_t ahora = tiempo_ms();
+    int8_t n = encoder_leer_pasos();
+
+    if (n)
+    {
+        float paso = ((uint32_t)(ahora - t_ult_paso) < ENC_T_RAPIDO_MS) ? ENC_PASO_RAPIDO_RPM : ENC_PASO_RPM;
+        t_ult_paso = ahora;
+        float nuevo = (floorf(control_get_sp() / paso + 0.5f) + (float)n) * paso;
+        if (nuevo < 0.0f)
+            nuevo = 0.0f;
+        if (nuevo > RPM_SP_MAX)
+            nuevo = RPM_SP_MAX;
+        control_set_sp(nuevo);
+        aviso_pend = 1;
+    }
+    // se informa el setpoint, sin inundar la terminal mientras se gira
+    if (aviso_pend && (uint32_t)(ahora - t_ult_aviso) >= ENC_T_AVISO_MS)
+    {
+        aviso_pend = 0;
+        t_ult_aviso = ahora;
+        UART_PRINT("# sp=");
+        uart_put_f(control_get_sp(), 0);
+        UART_PRINT(" rpm\r\n");
+    }
+}
+
 void comandos_tarea(void)
 {
+    encoder_tarea();
+
     static char linea[LINEA_MAX];
     static uint8_t n = 0;
     static uint8_t desborde = 0;

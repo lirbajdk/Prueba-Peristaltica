@@ -17,6 +17,7 @@ extern "C" {
 //-----------PINES-----------//
 #define MOSFET_PIN PB1 // D9 = OC1A (Timer1 PWM)
 // SDA = A4 (PC4), SCL = A5 (PC5) -> TWI por hardware
+// Encoder: A (CLK) = D2 (PD2, INT0), B (DT) = D3 (PD3, INT1)
 
 //--------TEMPORIZACIÓN-------//
 #define TS_PID_MS 20 // período del lazo PID [ms]
@@ -31,6 +32,14 @@ extern "C" {
 #define RPM_SP_MAX 10000.0f      // máximo setpoint aceptado [rpm]
 #define RPM_MAX_SEGURIDAD 12000.0f // si se pasa, corta el motor [rpm]
 #define MAX_ERRORES_SENSOR 10    // errores I2C seguidos -> falla
+
+//----------ENCODER----------//
+#define ENC_SENTIDO 1                // poner -1 si el setpoint baja al girar en horario
+#define ENC_TRANSICIONES_POR_PASO 4  // KY-040: 4 (1 ciclo por detent). Algunos EC11: 2
+#define ENC_PASO_RPM 10.0f           // cambio de setpoint por paso girando despacio
+#define ENC_PASO_RAPIDO_RPM 100.0f   // cambio por paso girando rápido
+#define ENC_T_RAPIDO_MS 40           // pasos más seguidos que esto = giro rápido
+#define ENC_T_AVISO_MS 250           // como mucho un "# sp=..." cada este tiempo
 
 //------------PID------------//
 #define U_MIN 0.0f   // salida mínima [%]
