@@ -23,7 +23,7 @@ typedef struct
 void pid_init(pid_ctrl_t *p, float kp, float ki, float kd, float ts, float out_min, float out_max);
 void pid_set_ganancias(pid_ctrl_t *p, float kp, float ki, float kd);
 void pid_set_filtro_d(pid_ctrl_t *p, float tf);
-void pid_reset(pid_ctrl_t *p, float pv, float out_actual); // arranque sin salto
+void pid_reset(pid_ctrl_t *p, float sp, float pv, float out_actual); // arranque sin salto
 float pid_calcular(pid_ctrl_t *p, float sp, float pv);
 
 #ifdef __cplusplus

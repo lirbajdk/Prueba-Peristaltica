@@ -1,7 +1,7 @@
 #include "uart.h"
 #include <stdlib.h>
 
-#define TX_SIZE 128 // potencias de 2
+#define TX_SIZE 256 // potencias de 2 (máx. 256: índices de 8 bits)
 #define RX_SIZE 32
 #define UART_UBRR ((F_CPU + 4UL * UART_BAUD) / (8UL * UART_BAUD) - 1UL)
 
@@ -9,6 +9,12 @@ static volatile uint8_t tx_buf[TX_SIZE];
 static volatile uint8_t tx_head = 0, tx_tail = 0;
 static volatile uint8_t rx_buf[RX_SIZE];
 static volatile uint8_t rx_head = 0, rx_tail = 0;
+static void (*espera_cb)(void) = 0;
+
+void uart_set_espera(void (*f)(void))
+{
+    espera_cb = f;
+}
 
 void uart_init(void)
 {
@@ -43,10 +49,19 @@ ISR(USART_RX_vect)
 
 void uart_putc(char c)
 {
-    uint8_t sig = (tx_head + 1) & (TX_SIZE - 1);
-    while (sig == tx_tail)
-        ; // buffer lleno: espera a que la ISR lo vacíe
-    tx_buf[tx_head] = (uint8_t)c;
+    uint8_t h, sig;
+    for (;;)
+    {
+        h = tx_head;
+        sig = (uint8_t)((h + 1) & (TX_SIZE - 1));
+        if (sig != tx_tail)
+            break;
+        // buffer lleno: mientras la ISR lo vacía se sigue atendiendo el sensor,
+        // si no el AS5600 deja de leerse y se pierde la cuenta de vueltas
+        if (espera_cb)
+            espera_cb();
+    }
+    tx_buf[h] = (uint8_t)c;
     tx_head = sig;
     UCSR0B |= (1 << UDRIE0);
 }
