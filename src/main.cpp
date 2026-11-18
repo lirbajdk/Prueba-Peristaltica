@@ -7,7 +7,7 @@
 #include "comandos.h"
 #include "encoder.h"
 
-//---------- Control PID de velocidad de un motor ----------//
+//---------- Control PID de velocidad de un motor DC 12V 5A ----------//
 // Actuador : MOSFET en D9 (Timer1, PWM 15,6 kHz)
 // Sensor   : AS5600 por I2C (SDA = A4, SCL = A5) -> velocidad en rpm
 // Encoder  : A = D4, B = D5 -> setpoint (también con 's <rpm>' por la terminal)
